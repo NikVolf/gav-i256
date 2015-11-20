@@ -203,7 +203,7 @@ fn can_add_iCustomSize_with_i32() {
 
 	match summ.words[WORDS-1] {
 		-10 => { return; }
-        _ => { panic!("result of (-10) + (-20) is not exactly -30"); }
+        _ => { panic!("result of (10) + (-20) is not exactly -10"); }
 	}
 }
 
@@ -216,7 +216,7 @@ fn can_add_iCustomSize_negative_all() {
 
 	match summ.words[WORDS-2] {
 		-25 => { return; }
-        _ => { panic!("result of 10 + (-20) is not exactly -10"); }
+        _ => { panic!("result of -10 + (-150) is not exactly -25"); }
 	}
 
 	match summ.hi {
