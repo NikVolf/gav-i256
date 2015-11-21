@@ -10,6 +10,7 @@ const WORDS: usize = 8;
 use std::ops::{Add, Sub, Mul};
 use std::str::FromStr;
 use std::cmp::PartialEq;
+use std::ops::Neg;
 
 #[derive(Debug, Copy, Clone)]
 struct iCustomSize {
@@ -59,6 +60,16 @@ impl iCustomSize {
 			_ => panic!("Parse error!")
 		}
 	}
+}
+
+
+
+impl Neg for iCustomSize {
+    type Output = iCustomSize;
+
+    fn neg(self) -> iCustomSize {
+        self.negate()
+    }
 }
 
 impl Add for iCustomSize {
@@ -570,7 +581,7 @@ fn can_pass_wau_tests() {
 		(_, _) => { panic!("hi word of 1 (one) should be 0 (zero), lowest word should be 1 (one)");}
 	}
 
-	let product2 = isz1*isz2.negate();
+	let product2 = isz1*(-isz2);
 	match (product2.hi, product2.words[WORDS-2])  {
 		(-1, -1) => {},
 		(_, _) => { panic!("hi word of -1 (negative one) should be -1 (zero), lowest word should be -1 (negative one)");}
