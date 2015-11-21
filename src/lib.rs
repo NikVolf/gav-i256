@@ -1,3 +1,5 @@
+#![allow(non_snake_case)]
+#![allow(non_camel_case_types)]
 // 8 for 256 bit initeger
 // 5 for 160 bit integer
 // 4 for 128 bit integer
@@ -5,6 +7,7 @@ const WORDS: usize = 8;
 
 use std::ops::{Add, Sub};
 
+#[derive(Debug, Copy, Clone)]
 struct iCustomSize {
 	hi: i32,
 	words: [i32; WORDS-1]
@@ -26,10 +29,23 @@ impl iCustomSize {
 
 	fn new_from_i32(val: i32) -> iCustomSize {
 		let mut result = iCustomSize::new();
-		result.hi = (val >> 31)	;
+		result.hi = val >> 31;
 		result.words[WORDS-2] = val;
+		for i in 0..WORDS-2 {
+			result.words[i] = val >> 31;
+		}
 		result
 	}
+
+	fn negate(self) -> iCustomSize {
+		let mut result = iCustomSize::new();
+		result.hi = !self.hi + (self.hi >> 31);
+		for i in 0..WORDS-2 {
+			result.words[i] = !self.words[i] + (self.words[i] >> 31)
+		}
+		result
+	}
+
 }
 
 impl Add for iCustomSize {
@@ -43,16 +59,36 @@ impl Add for iCustomSize {
 		// including carry bits for negative numbers
 		let mut hi: i32 = self.hi + other.hi - self_carry - other_carry;
 
-		for i in 0..WORDS-1 {
-			let added: i64 = self.words[WORDS-2-i] as i64 + other.words[WORDS-2-i] as i64 + overflow as i64;
+		for i in 0..WORDS-2 {
+			let index = WORDS-2-i;
+			let carry = match i {
+				0 => (0, 0),
+				_ => (self.words[index-1] >> 31, other.words[index-1] >> 31)
+			};
+
+			let added: i64 =
+				self.words[index] as i64
+				+ other.words[index] as i64
+				+ overflow as i64
+				- carry.0 as i64
+				- carry.1 as i64;
+
+			let word_value = (added | (-1 << 31)) as i32;
 			overflow = (added >> 31) as i32;
-			words[WORDS-2-i] = added as i32;
+			words[index] = word_value as i32;
 		}
 
 		hi = hi + overflow;
 
         iCustomSize { hi: hi, words: words }
     }
+}
+
+impl Sub for iCustomSize {
+	type Output = iCustomSize;
+	fn sub(self, other: iCustomSize) -> iCustomSize {
+		self + other.negate()
+	}
 }
 
 impl Add<i32> for iCustomSize {
@@ -63,6 +99,7 @@ impl Add<i32> for iCustomSize {
 	}
 }
 
+#[derive(Debug, Copy, Clone)]
 struct uCustomSize {
 	words: [u32; WORDS]
 }
@@ -171,6 +208,7 @@ fn can_add_iCustomSize_simple() {
 	}
 }
 
+
 #[test]
 fn can_add_iCustomSize_negative() {
 	let isz1 = iCustomSize::new_from_i32(10);
@@ -188,6 +226,7 @@ fn can_add_iCustomSize_negative() {
         _ => { panic!("result of 10 + (-20) is not exactly -10"); }
 	}
 }
+
 
 #[test]
 fn can_add_iCustomSize_with_i32() {
@@ -207,6 +246,7 @@ fn can_add_iCustomSize_with_i32() {
 	}
 }
 
+
 #[test]
 fn can_add_iCustomSize_negative_all() {
 	let isz1 = iCustomSize::new_from_i32(-10);
@@ -214,9 +254,15 @@ fn can_add_iCustomSize_negative_all() {
 
 	let summ = isz1 + isz2;
 
+	print!("words: ");
+	for x in &summ.words {
+		print!("{} :", x);
+	}
+	println!("");
+
 	match summ.words[WORDS-2] {
 		-25 => { return; }
-        _ => { panic!("result of -10 + (-150) is not exactly -25"); }
+        _ => { panic!("result of -10 + (-15) is not exactly -25"); }
 	}
 
 	match summ.hi {
@@ -224,6 +270,36 @@ fn can_add_iCustomSize_negative_all() {
 		_ => { panic!("resulting int is not negative!"); }
 	}
 }
+
+#[test]
+fn can_substract_iCustomSize_numbers() {
+	let isz1 = iCustomSize::new_from_i32(-2000000000);
+	let isz2 = iCustomSize::new_from_i32(2000000000);
+
+	let subs = isz1 - isz2;
+
+	if (subs.words[WORDS-2] >= 0)
+	{
+		print!("words: ");
+		for x in &subs.words {
+			print!("{} :", x);
+		}
+		println!("");
+
+		panic!("result lowest word should be less than zero (sinze -2^9 - 2^9 is surely are less than zero)")
+	}
+
+	if (subs.words[WORDS-3] >= 0) {
+		panic!("result second lowest word should be less than zero (sinze -2^9 - 2^9 is surely are less than (-max_int))")
+	}
+
+	if (subs.hi != -1) {
+		println!("subs.hi = {}", subs.hi);
+
+		panic!("the resulting number highest word should be exactiy (-1) in two-bits complement");
+	}
+}
+
 
 #[test]
 fn can_add_uCustomSize_numbers() {
@@ -242,3 +318,26 @@ fn can_add_uCustomSize_numbers() {
 		_ => { return; }
 	}
 }
+
+
+#[test]
+fn can_add_iCustomSize_big_numbers() {
+	let isz1 = iCustomSize::new_from_i32(-2000000000);
+	let isz2 = iCustomSize::new_from_i32(-2000000000);
+
+	let summ = isz1 + isz2;
+
+	if (summ.words[WORDS-2] >= 0) {
+		panic!("result lowest word should be less than zero (sinze -2^9 + (-2^9) is surely are less than zero)")
+	}
+}
+
+//#[test]
+//fn shl() {
+//	let x:i64 = -4000000000;
+//	let y:i32 = (x >> 32) as i32;
+//	let r:i32 = (x | (-1 << 31)) as i32;
+//	println!("y: {}, r: {}", y, r);
+//
+//	panic!();
+//}
