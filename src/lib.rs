@@ -510,7 +510,7 @@ fn can_multiply_iCustomSize_opposite() {
 	}
 
 	let product2 = isz2 * isz1;
-	match product.hi {
+	match product2.hi {
 		-1 => {},
 		_ => { panic!("hi word of the product should be exactly -1 since we have little negative 4 as a product")}
 	}
@@ -589,15 +589,12 @@ fn can_negate_iCustomSize() {
 
 #[test]
 fn can_multiply_really_big_numbers() {
-	let isz1 = iCustomSize::new_from_str("1000000000000");
-	let isz2 = iCustomSize::new_from_str("2000000000000");
+	let isz1 = iCustomSize::new_from_str("1000000000000000");
+	let isz2 = iCustomSize::new_from_str("2000000000000000");
 	let product = isz1 * isz2;
-	let product_test = iCustomSize::new_from_str("2000000000000000000000000");
+	let product_test = iCustomSize::new_from_str("2000000000000000000000000000000");
 
-	if (product != product_test)
-	{
-		panic!("1000000000000 * 2000000000000 is not equal to 2000000000000000000000000");
-	}
+	assert_eq!(product, product_test);
 }
 
 #[test]
