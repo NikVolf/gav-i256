@@ -6,7 +6,7 @@
 // 4 for 128 bit integer
 const WORDS: usize = 8;
 
-use std::ops::{Add, Sub};
+use std::ops::{Add, Sub, Mul};
 
 #[derive(Debug, Copy, Clone)]
 struct iCustomSize {
@@ -75,11 +75,10 @@ impl Add for iCustomSize {
 				- carry.1 as i64;
 
 			let mut word_value = 0;
-
 			if (added >= 0) {
 				word_value = added as i32;
 			}
-			else if (added < 0) {
+			else {
 				word_value = (added | (-1 << 31)) as i32;
 			}
 
@@ -105,6 +104,68 @@ impl Add<i32> for iCustomSize {
 	fn add(self, other: i32) -> iCustomSize {
 		let custom_other = iCustomSize::new_from_i32(other);
 		self + custom_other
+	}
+}
+
+impl Mul for iCustomSize {
+	type Output = iCustomSize;
+
+	fn mul(self, other: iCustomSize) -> iCustomSize {
+		let mut words: [i32; WORDS-1] = [0;WORDS-1];
+    	let mut overflow: i32 = 1;
+
+		for i in 0..WORDS-1 {
+			let index = WORDS-2-i;
+
+			let s1 = match (self.words[index], i)
+			{
+				(0, 0) => 0 as i64,
+				(0, _) => (overflow >> 31) as i64,
+				(_, _) => self.words[index] as i64
+			};
+
+			let s2 = match(other.words[index], i)
+			{
+				(0, 0) => 0 as i64,
+				(0, _) => (overflow >> 31) as i64,
+				(_, _) => other.words[index] as i64
+			};
+
+			let product:i64 =
+				s1
+				* s2
+				* overflow as i64;
+
+			println!("{} * {} * {} = {}", s1, s2, overflow as i64, product);
+
+			overflow = (product >> 31) as i32;
+
+			let mut word_value = 0;
+			if (product >= 0) {
+				word_value = product as i32;
+			}
+			else {
+				word_value = (product | (-1 << 31)) as i32;
+			}
+
+			words[index] = word_value;
+
+		}
+
+		let hi1 = match self.hi {
+			0 => overflow >> 31,
+			_ => self.hi
+		};
+
+		let hi2 = match other.hi {
+			0 => overflow >> 31,
+			_ => other.hi
+		};
+
+		let hi = hi1 * hi2 * overflow;
+		println!("{} * {} * {} = {}", hi1, hi2, overflow as i64, hi);
+
+		iCustomSize { hi: hi, words: words }
 	}
 }
 
@@ -338,6 +399,53 @@ fn can_add_iCustomSize_big_numbers() {
 
 	if (summ.words[WORDS-2] >= 0) {
 		panic!("result lowest word should be less than zero (sinze -2^9 + (-2^9) is surely are less than zero)")
+	}
+}
+
+#[test]
+fn can_multiply_iCustomSize_simple() {
+	let isz1 = iCustomSize::new_from_i32(2);
+	let isz2 = iCustomSize::new_from_i32(2);
+
+	let product = isz1 * isz2;
+	match product.hi {
+		0 => {},
+		_ => { panic!("hi word of the product should be exactly 0 since 2*2 is definitely not overflown")}
+	}
+
+	match product.words[WORDS-2] {
+		4 => {},
+		_ => { panic!("2*2 is not 4")}
+	}
+}
+
+#[test]
+fn can_multiply_iCustomSize_negative() {
+	let isz1 = iCustomSize::new_from_i32(-2);
+	let isz2 = iCustomSize::new_from_i32(-2);
+
+	let product = isz1 * isz2;
+	match product.hi {
+		0 => {},
+		_ => { panic!("hi word of the product should be exactly 0 since -2*-2 and the product is positive")}
+	}
+}
+
+#[test]
+fn can_multiply_iCustomSize_opposite() {
+	let isz1 = iCustomSize::new_from_i32(-2);
+	let isz2 = iCustomSize::new_from_i32(2);
+
+	let product = isz1 * isz2;
+	match product.hi {
+		-1 => {},
+		_ => { panic!("hi word of the product should be exactly -1 since we have little negative 4 as a product")}
+	}
+
+	let product2 = isz2 * isz1;
+	match product.hi {
+		-1 => {},
+		_ => { panic!("hi word of the product should be exactly -1 since we have little negative 4 as a product")}
 	}
 }
 
