@@ -1,6 +1,7 @@
 #![allow(non_snake_case)]
 #![allow(non_camel_case_types)]
 #![allow(unused_parens)]
+// 16 for 512 bit integer
 // 8 for 256 bit initeger
 // 5 for 160 bit integer
 // 4 for 128 bit integer
@@ -593,6 +594,26 @@ fn can_multiply_really_big_numbers() {
 	let isz2 = iCustomSize::new_from_str("2000000000000000");
 	let product = isz1 * isz2;
 	let product_test = iCustomSize::new_from_str("2000000000000000000000000000000");
+
+	assert_eq!(product, product_test);
+}
+
+#[test]
+fn can_multiply_really_big_negative_numbers() {
+	let isz1 = iCustomSize::new_from_str("-1000000000000000");
+	let isz2 = iCustomSize::new_from_str("-2000000000000000");
+	let product = isz1 * isz2;
+	let product_test = iCustomSize::new_from_str("2000000000000000000000000000000");
+
+	assert_eq!(product, product_test);
+}
+
+#[test]
+fn can_multiply_really_big_opposite_numbers() {
+	let isz1 = iCustomSize::new_from_str("-3000000000000000");
+	let isz2 = iCustomSize::new_from_str("2000000000000000");
+	let product = isz1 * isz2;
+	let product_test = iCustomSize::new_from_str("-6000000000000000000000000000000");
 
 	assert_eq!(product, product_test);
 }
