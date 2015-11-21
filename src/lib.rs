@@ -1,5 +1,6 @@
 #![allow(non_snake_case)]
 #![allow(non_camel_case_types)]
+#![allow(unused_parens)]
 // 8 for 256 bit initeger
 // 5 for 160 bit integer
 // 4 for 128 bit integer
@@ -21,7 +22,7 @@ impl iCustomSize {
 	fn new_from_words(words: [i32; WORDS]) -> iCustomSize {
 		let mut result = iCustomSize::new();
 		result.hi = words[0] as i32;
-		for i in 0..WORDS-2 {
+		for i in 0..WORDS-1 {
 			result.words[i] = words[i+1];
 		}
 		result
@@ -40,7 +41,7 @@ impl iCustomSize {
 	fn negate(self) -> iCustomSize {
 		let mut result = iCustomSize::new();
 		result.hi = !self.hi + (self.hi >> 31);
-		for i in 0..WORDS-2 {
+		for i in 0..WORDS-1 {
 			result.words[i] = !self.words[i] + (self.words[i] >> 31)
 		}
 		result
@@ -59,11 +60,11 @@ impl Add for iCustomSize {
 		// including carry bits for negative numbers
 		let mut hi: i32 = self.hi + other.hi - self_carry - other_carry;
 
-		for i in 0..WORDS-2 {
+		for i in 0..WORDS-1 {
 			let index = WORDS-2-i;
 			let carry = match i {
 				0 => (0, 0),
-				_ => (self.words[index-1] >> 31, other.words[index-1] >> 31)
+				_ => (self.words[index+1] >> 31, other.words[index+1] >> 31)
 			};
 
 			let added: i64 =
@@ -73,7 +74,15 @@ impl Add for iCustomSize {
 				- carry.0 as i64
 				- carry.1 as i64;
 
-			let word_value = (added | (-1 << 31)) as i32;
+			let mut word_value = 0;
+
+			if (added >= 0) {
+				word_value = added as i32;
+			}
+			else if (added < 0) {
+				word_value = (added | (-1 << 31)) as i32;
+			}
+
 			overflow = (added >> 31) as i32;
 			words[index] = word_value as i32;
 		}
@@ -124,7 +133,7 @@ impl Add for uCustomSize {
 		for i in 0..WORDS-1 {
 			let index = WORDS-1-i;
 			let added: u64 = self.words[index] as u64 + other.words[index] as u64 + overflow as u64;
-			overflow = (added >> 32) as u32;
+			overflow = (added >> 31) as u32;
 			words[index] = added as u32;
 		}
         uCustomSize { words: words }
@@ -145,7 +154,7 @@ fn can_create_iCustomSize() {
 	let defined_iCustomSize = iCustomSize::new();
 
     match defined_iCustomSize.hi {
-		0 => { return; }
+		0 => { }
 		_ => { panic!("newly defined int hi word is not initialized to default value of 0 (zero)");}
 	}
 }
@@ -155,7 +164,7 @@ fn can_create_uCustomSize() {
 	let defined_uCustomSize = uCustomSize::new();
 
     match defined_uCustomSize.words[0] {
-		0 => { return; }
+		0 => { }
 		_ => { panic!("newly defined int hi word is not initialized to default value of 0 (zero)");}
 	}
 }
@@ -164,12 +173,12 @@ fn can_create_uCustomSize() {
 fn can_create_iCustomSize_from_i32() {
 	let defined_iCustomSize = iCustomSize::new_from_i32(-10);
 	match defined_iCustomSize.hi {
-		-1 => { return; }
+		-1 => {}
 		_ => { panic!("hi word of the newly defined int is not negative"); }
 	}
 
-	match defined_iCustomSize.words[WORDS-1] {
-		-10 => { return; }
+	match defined_iCustomSize.words[WORDS-2] {
+		-10 => { }
 		_ => { panic!("lo word of the newly defined int is not 10 defined on the first place"); }
 	}
 }
@@ -180,12 +189,12 @@ fn can_create_iCustomSize_from_words() {
 	words[WORDS-1] = 1;
 	let isz = iCustomSize::new_from_words(words);
 	match isz.hi {
-		0 => { return; }
+		0 => { }
         _ => { panic!("newly defined int hi word is not initialized to default value of 0 (zero)"); }
 	}
 
-	match isz.words[WORDS-1] {
-		1 => { return; }
+	match isz.words[WORDS-2] {
+		1 => { }
         _ => { panic!("newly defined int lowest word is not initialized to the default value of 1 (one)"); }
 	}
 }
@@ -198,12 +207,12 @@ fn can_add_iCustomSize_simple() {
 	let summ = isz1 + isz2;
 
 	match summ.hi {
-		0 => { return; }
+		0 => { }
 		_ => { panic!("newly defined int hi word is not initialized to default value of 0 (zero)"); }
 	}
 
-	match summ.words[WORDS-1] {
-		30 => { return; }
+	match summ.words[WORDS-2] {
+		30 => { }
         _ => { panic!("summ of non-overflowed ints should is not exactly 30"); }
 	}
 }
@@ -217,12 +226,12 @@ fn can_add_iCustomSize_negative() {
 	let summ = isz1 + isz2;
 
 	match summ.hi {
-		-1 => { return; }
+		-1 => { }
 		_ => { panic!("resulting int is not negative!"); }
 	}
 
-	match summ.words[WORDS-1] {
-		-10 => { return; }
+	match summ.words[WORDS-2] {
+		-10 => { }
         _ => { panic!("result of 10 + (-20) is not exactly -10"); }
 	}
 }
@@ -236,12 +245,12 @@ fn can_add_iCustomSize_with_i32() {
 	let summ = isz1 + i32v;
 
 	match summ.hi {
-		-1 => { return; }
+		-1 => { }
 		_ => { panic!("resulting int is not negative!"); }
 	}
 
-	match summ.words[WORDS-1] {
-		-10 => { return; }
+	match summ.words[WORDS-2] {
+		-10 => { }
         _ => { panic!("result of (10) + (-20) is not exactly -10"); }
 	}
 }
@@ -261,12 +270,12 @@ fn can_add_iCustomSize_negative_all() {
 	println!("");
 
 	match summ.words[WORDS-2] {
-		-25 => { return; }
+		-25 => { }
         _ => { panic!("result of -10 + (-15) is not exactly -25"); }
 	}
 
 	match summ.hi {
-		-1 => { return; }
+		-1 => { }
 		_ => { panic!("resulting int is not negative!"); }
 	}
 }
@@ -310,12 +319,12 @@ fn can_add_uCustomSize_numbers() {
 
 	match summ.words[WORDS-1] {
 		0 => { panic!("impossible value, maybe overflown") }
-		_ => { return; }
+		_ => { }
 	}
 
 	match summ.words[WORDS-2] {
 		0 => { panic!("Should be greater than because 2^9 + 2^9 is bigger than max int32"); }
-		_ => { return; }
+		_ => { }
 	}
 }
 
