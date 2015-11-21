@@ -7,6 +7,8 @@
 const WORDS: usize = 8;
 
 use std::ops::{Add, Sub, Mul};
+use std::str::FromStr;
+use std::cmp::PartialEq;
 
 #[derive(Debug, Copy, Clone)]
 struct iCustomSize {
@@ -42,11 +44,20 @@ impl iCustomSize {
 		let mut result = iCustomSize::new();
 		result.hi = !self.hi + (self.hi >> 31);
 		for i in 0..WORDS-1 {
-			result.words[i] = !self.words[i] + (self.words[i] >> 31)
+			result.words[i] = match self.words[i] {
+				1 => -1,
+				_ => !self.words[i] + (self.words[i] >> 31)
+			};
 		}
 		result
 	}
 
+	fn new_from_str(s: &str) -> iCustomSize {
+		match iCustomSize::from_str(s) {
+			Ok(sz) => sz,
+			_ => panic!("Parse error!")
+		}
+	}
 }
 
 impl Add for iCustomSize {
@@ -168,6 +179,62 @@ impl Mul for iCustomSize {
 		iCustomSize { hi: hi, words: words }
 	}
 }
+
+impl Mul<i32> for iCustomSize {
+	type Output = iCustomSize;
+	fn mul(self, other: i32) -> iCustomSize {
+		let custom_other = iCustomSize::new_from_i32(other);
+		self * custom_other
+	}
+}
+
+impl PartialEq<iCustomSize> for iCustomSize {
+	fn eq(&self, other: &iCustomSize) -> bool {
+		if (self.hi != other.hi) {
+			return false;
+		}
+
+		for i in 0..WORDS-2 {
+			if (self.words[i] != other.words[i]) {
+				return false;
+			}
+		}
+		true
+	}
+}
+
+enum iCustomSizeError {
+	OverflowError,
+	FormatError
+}
+
+impl FromStr for iCustomSize {
+    type Err = iCustomSizeError;
+    fn from_str(s: &str) -> Result<iCustomSize, iCustomSizeError> {
+		let first_char = s.chars().nth(0);
+		let is_negative = (first_char == Some('-'));
+
+		print!("is_negative: {}", is_negative);
+
+		let numbers_string:Vec<u8> = match is_negative {
+			true => s.bytes().skip(1).collect(),
+			false => s.bytes().collect()
+		};
+
+		let mut result: iCustomSize = iCustomSize::new_from_i32(0);
+		let mut base = iCustomSize::new_from_i32(1);
+		for c in numbers_string {
+			let digit = (c - 48) as i32;
+			result = match is_negative {
+				false => result + base * digit,
+				true => result - base * digit
+			};
+			base = base * 10;
+		}
+		Ok(result)
+	}
+}
+
 
 #[derive(Debug, Copy, Clone)]
 struct uCustomSize {
@@ -446,6 +513,100 @@ fn can_multiply_iCustomSize_opposite() {
 	match product.hi {
 		-1 => {},
 		_ => { panic!("hi word of the product should be exactly -1 since we have little negative 4 as a product")}
+	}
+}
+
+#[test]
+fn can_create_iCustomSize_from_string() {
+	let isz_result = iCustomSize::from_str("1");
+
+	match isz_result {
+		Ok(isz) => match (isz.hi, isz.words[WORDS-2])  {
+			(0, 1) => {},
+			(_, _) => { panic!("hi word of 1 (one) should be 0 (zero), lowest word should be 1 (one)");}
+		},
+		_ => { panic!("error parsing VERY simple string");}
+	}
+}
+
+#[test]
+fn can_create_negative_iCustomSize_from_string() {
+	let isz_result = iCustomSize::from_str("-1");
+
+	match isz_result {
+		Ok(isz) => match (isz.hi, isz.words[WORDS-2])  {
+			(-1, -1) => {},
+			(_, _) => {
+				println!("hi: {}, lo: {}", isz.hi, isz.words[WORDS-2]);
+				panic!("hi word of -1 (negative one) should be -1 (zero), lowest word should be -1 (negative one)");
+			}
+		},
+		_ => { panic!("error parsing VERY simple string");}
+	}
+}
+
+#[test]
+fn can_substract_iCustomSize_from_zero() {
+	let isz1 = iCustomSize::new_from_i32(0);
+	let isz2 = iCustomSize::new_from_i32(-1);
+
+	let sub = isz1 - isz2;
+
+	match (sub.hi, sub.words[WORDS-2])  {
+		(-1, -1) => {},
+		(_, _) => { panic!("hi word of -1 (negative one) should be -1 (zero), lowest word should be -1 (negative one)");}
+	}
+}
+
+#[test]
+fn can_pass_wau_tests() {
+	let isz1 = iCustomSize::new_from_i32(1);
+	let isz2 = iCustomSize::new_from_i32(1);
+	let product1 = isz1*isz2;
+
+	match (product1.hi, product1.words[WORDS-2])  {
+		(0, 1) => {},
+		(_, _) => { panic!("hi word of 1 (one) should be 0 (zero), lowest word should be 1 (one)");}
+	}
+
+	let product2 = isz1*isz2.negate();
+	match (product2.hi, product2.words[WORDS-2])  {
+		(-1, -1) => {},
+		(_, _) => { panic!("hi word of -1 (negative one) should be -1 (zero), lowest word should be -1 (negative one)");}
+	}
+}
+
+#[test]
+fn can_negate_iCustomSize() {
+	let isz = iCustomSize::new_from_i32(1);
+	let isz_negated = isz.negate();
+
+	match (isz_negated.hi, isz_negated.words[WORDS-2])  {
+		(-1, -1) => {},
+		(_, _) => { panic!("hi word of -1 (negative one) should be -1 (zero), lowest word should be -1 (negative one)");}
+	}
+}
+
+#[test]
+fn can_multiply_really_big_numbers() {
+	let isz1 = iCustomSize::new_from_str("1000000000000");
+	let isz2 = iCustomSize::new_from_str("2000000000000");
+	let product = isz1 * isz2;
+	let product_test = iCustomSize::new_from_str("2000000000000000000000000");
+
+	if (product != product_test)
+	{
+		panic!("1000000000000 * 2000000000000 is not equal to 2000000000000000000000000");
+	}
+}
+
+#[test]
+fn can_compare_iCustomSize() {
+	let isz1 = iCustomSize::new_from_i32(100);
+	let isz2 = iCustomSize::new_from_i32(100);
+
+	if (isz1 != isz2) {
+		panic!("100 is actually pretty equal to 100");
 	}
 }
 
