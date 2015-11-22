@@ -9,7 +9,7 @@ const WORDS: usize = 8;
 
 use std::ops::{Add, Sub, Mul};
 use std::str::FromStr;
-use std::cmp::PartialEq;
+use std::cmp::{PartialEq, PartialOrd, Ordering};
 use std::ops::Neg;
 
 #[derive(Debug, Copy, Clone)]
@@ -214,6 +214,50 @@ impl PartialEq<iCustomSize> for iCustomSize {
 		true
 	}
 }
+
+impl PartialEq<i32> for iCustomSize {
+	fn eq(&self, other: &i32) -> bool {
+		self.words[WORDS-2] == *other
+	}
+}
+
+impl PartialOrd<i32> for iCustomSize {
+	fn partial_cmp(&self, other: &i32) -> Option<Ordering> {
+		if (self.words[WORDS-2] > *other) {
+			return Some(Ordering::Greater);
+		}
+		else if (self.words[WORDS-2] < *other) {
+			return Some(Ordering::Less);
+		}
+		Some(Ordering::Equal)
+	}
+}
+
+impl PartialOrd<iCustomSize> for iCustomSize {
+	fn partial_cmp(&self, other: &iCustomSize) -> Option<Ordering> {
+		if (self.hi > other.hi) {
+			return Some(Ordering::Greater);
+		}
+		else if (self.hi < other.hi)
+		{
+			return Some(Ordering::Less);
+		}
+
+		for i in 0..WORDS-1 {
+			if (self.words[i] > other.words[i])
+			{
+				return Some(Ordering::Greater);
+			}
+			else if (self.words[i] < other.words[i])
+			{
+				return Some(Ordering::Less);
+			}
+		}
+
+		Some(Ordering::Equal)
+	}
+}
+
 
 enum iCustomSizeError {
 	OverflowError,
@@ -636,6 +680,25 @@ fn can_compare_iCustomSize() {
 
 	if (isz1 != isz2) {
 		panic!("100 is actually pretty equal to 100");
+	}
+}
+
+#[test]
+fn can_compare_with_consts() {
+	let isz1 = iCustomSize::new_from_i32(1);
+	if (isz1 <= 0)
+	{
+		panic!("1 is greater than 0!");
+	}
+}
+
+#[test]
+fn can_compare_two_numbers() {
+	let isz1 = iCustomSize::new_from_str("-32834713908457234897534523452345");
+	let isz2 = iCustomSize::new_from_str("-34532452345234523464564356423562");
+
+	if (isz1 < isz2) {
+		panic!("-32834713908457234897534523452345 is greater than -34532452345234523464564356423562!");
 	}
 }
 
